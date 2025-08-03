@@ -10,6 +10,12 @@
         .auth-container { text-align: center; padding: 50px; background: white; border-radius: 10px; margin: 50px auto; max-width: 400px; }
         input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
         .auth-btn { background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; width: 100%; margin: 5px 0; }
+        .google-btn { background: #ffffff; color: #757575; padding: 10px 20px; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; width: 100%; margin: 5px 0; display: flex; align-items: center; justify-content: center; font-family: 'Roboto', Arial, sans-serif; font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: background-color 0.3s; }
+        .google-btn:hover { background-color: #f5f5f5; }
+        .google-btn img { margin-right: 10px; width: 18px; height: 18px; }
+        .or-divider { display: flex; align-items: center; margin: 15px 0; }
+        .or-divider:before, .or-divider:after { content: ""; flex: 1; border-bottom: 1px solid #ddd; }
+        .or-divider span { padding: 0 10px; color: #777; font-size: 14px; }
         .toggle-auth { color: #2196F3; cursor: pointer; text-decoration: underline; }
     </style>
 </head>
@@ -18,6 +24,13 @@
         <!-- Authentication Section -->
         <div id="authContainer" class="auth-container">
             <h2 id="authTitle">Login</h2>
+            <button id="googleBtn" class="google-btn">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google logo">
+                Continue with Google
+            </button>
+            <div class="or-divider">
+                <span>OR</span>
+            </div>
             <input type="email" id="email" placeholder="Email" required>
             <input type="password" id="password" placeholder="Password" required>
             <input type="text" id="username" placeholder="Username" style="display: none;" required>
@@ -29,7 +42,7 @@
     <!-- Firebase Scripts -->
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js';
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, updateProfile } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js';
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, updateProfile, GoogleAuthProvider, signInWithPopup } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js';
         import { getDatabase, ref, set, serverTimestamp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js';
 
         const firebaseConfig = {
@@ -51,10 +64,21 @@
         // DOM elements
         const authTitle = document.getElementById('authTitle');
         const authBtn = document.getElementById('authBtn');
+        const googleBtn = document.getElementById('googleBtn');
         const toggleAuth = document.getElementById('toggleAuth');
         const emailInput = document.getElementById('email');
         const passwordInput = document.getElementById('password');
         const usernameInput = document.getElementById('username');
+        
+        // Google Auth Provider
+        const googleProvider = new GoogleAuthProvider();
+        // Add scopes for better user experience in Chrome
+        googleProvider.addScope('profile');
+        googleProvider.addScope('email');
+        // Set custom parameters for Chrome
+        googleProvider.setCustomParameters({
+            'prompt': 'select_account'
+        });
 
         // Authentication event listeners
         toggleAuth.addEventListener('click', () => {
@@ -101,6 +125,37 @@
             }
         });
 
+        // Google Sign In
+        googleBtn.addEventListener('click', async () => {
+            try {
+                // Show loading state
+                googleBtn.disabled = true;
+                googleBtn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google logo"> Signing in...';
+                
+                const result = await signInWithPopup(auth, googleProvider);
+                const user = result.user;
+                const photoURL = user.photoURL || 'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/profile-placeholder.png';
+                
+                // Save user data to database
+                await set(ref(database, `users/${user.uid}`), {
+                    username: user.displayName || user.email,
+                    email: user.email,
+                    photoURL: photoURL,
+                    lastSeen: serverTimestamp()
+                });
+                
+                // Redirect to main page
+                window.location.href = 'index.html';
+            } catch (error) {
+                console.error('Google sign in error:', error);
+                alert('Google sign in failed: ' + error.message);
+                
+                // Reset button state
+                googleBtn.disabled = false;
+                googleBtn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google logo"> Continue with Google';
+            }
+        });
+        
         // Check if user is already logged in
         onAuthStateChanged(auth, (user) => {
             if (user) {

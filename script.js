@@ -39,6 +39,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
         // DOM elements
         const chatContainer = document.getElementById('chatContainer');
         const currentUserSpan = document.getElementById('currentUser');
+        const userProfilePic = document.getElementById('userProfilePic');
         const localVideo = document.getElementById('localVideo');
         const remoteVideo = document.getElementById('remoteVideo');
         const localLabel = document.getElementById('localLabel');
@@ -64,6 +65,12 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
             if (user) {
                 currentUser = user;
                 currentUserSpan.textContent = user.displayName || user.email;
+                
+                // Set profile picture if available
+                if (user.photoURL) {
+                    userProfilePic.src = user.photoURL;
+                }
+                
                 chatContainer.style.display = 'block';
                 initializeUserPresence();
                 initializeMedia();
