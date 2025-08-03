@@ -4,51 +4,469 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="style.css">
-    <title>P2P Video Chat</title>
-   
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>HeartBeat - Video Dating</title>
+    <style>
+        .app-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            padding-top: 10px;
+        }
+        
+        .app-logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+        }
+        
+        .app-logo i {
+            margin-right: 8px;
+        }
+        
+        .match-info {
+            text-align: center;
+            margin: 15px 0;
+            font-size: 14px;
+            color: var(--primary-dark);
+            font-weight: 500;
+        }
+        
+        .match-count {
+            background: var(--gradient-primary);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 50px;
+            font-size: 12px;
+            margin-left: 5px;
+            display: inline-block;
+        }
+        
+        .video-controls {
+            position: absolute;
+            bottom: 15px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            z-index: 5;
+        }
+        
+        .video-control-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.5);
+            border: none;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+            transition: all 0.3s ease;
+        }
+        
+        .video-control-btn:hover {
+            background: rgba(0,0,0,0.7);
+            transform: scale(1.1);
+        }
+        
+        .video-control-btn i {
+            font-size: 16px;
+        }
+        
+        .hearts-animation {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 100%;
+            pointer-events: none;
+            z-index: 4;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        
+        .hearts-animation.active {
+            opacity: 1;
+        }
+        
+        .heart {
+            position: absolute;
+            bottom: -10%;
+            font-size: 20px;
+            color: var(--primary-color);
+            animation: float 4s ease-in-out infinite;
+            opacity: 0.7;
+        }
+        
+        @keyframes float {
+            0% {
+                transform: translateY(0) scale(0.5) rotate(0deg);
+                opacity: 0;
+            }
+            50% {
+                opacity: 0.7;
+            }
+            100% {
+                transform: translateY(-100vh) scale(1.2) rotate(360deg);
+                opacity: 0;
+            }
+        }
+        
+        .connection-pulse {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 77, 145, 0.2);
+            border-radius: 50%;
+            z-index: 3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                transform: translate(-50%, -50%) scale(0.8);
+                opacity: 0.8;
+            }
+            70% {
+                transform: translate(-50%, -50%) scale(1.2);
+                opacity: 0;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(0.8);
+                opacity: 0;
+            }
+        }
+        
+        .connection-pulse::before {
+            content: '';
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 77, 145, 0.3);
+            border-radius: 50%;
+            animation: pulse 2s infinite 0.3s;
+        }
+        
+        .connection-pulse::after {
+            content: '';
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 77, 145, 0.5);
+            border-radius: 50%;
+            animation: pulse 2s infinite 0.6s;
+        }
+        
+        .connection-pulse i {
+            font-size: 30px;
+            color: var(--primary-color);
+            z-index: 4;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
+        <div class="app-header">
+            <div class="app-logo">
+                <i class="fas fa-heart-pulse"></i> HeartBeat
+            </div>
+        </div>
 
         <!-- Chat Section -->
         <div id="chatContainer" class="chat-container" style="display: block;">
-            <div class="user-info">
-                <div style="display: flex; align-items: center;">
-                    <img id="userProfilePic" src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/profile-placeholder.png" alt="Profile" style="width: 32px; height: 32px; border-radius: 50%; margin-right: 10px; object-fit: cover;">
-                    <span>Welcome, <strong id="currentUser"></strong></span>
+            <div class="profile-icon" id="profileIcon">
+                <img id="userProfilePic" src="https://img.freepik.com/free-vector/man-profile-account-picture_24908-81754.jpg?semt=ais_hybrid&w=740&q=80" alt="Profile">
+            </div>
+            
+            <!-- Profile Sidebar -->
+            <div class="profile-sidebar" id="profileSidebar">
+                <div class="sidebar-header">
+                    <h3>Profile</h3>
+                    <button class="close-sidebar" id="closeSidebar">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
-                <button onclick="logout()" style="margin-left: 10px; padding: 5px; background: #f44336; color: white; border: none; border-radius: 3px; cursor: pointer;">Logout</button>
+                <div class="profile-details">
+                    <div class="profile-image-container">
+                        <img id="sidebarProfilePic" src="https://img.freepik.com/free-vector/man-profile-account-picture_24908-81754.jpg?semt=ais_hybrid&w=740&q=80" alt="Profile">
+                    </div>
+                    <h4 id="currentUser"></h4>
+                    <div class="user-metadata">
+                        <div class="metadata-item">
+                            <i class="fas fa-user"></i>
+                            <span>Age: <span id="userAge">25</span></span>
+                        </div>
+                        <div class="metadata-item">
+                            <i class="fas fa-venus-mars"></i>
+                            <span>Gender: <span id="userGender">Male</span></span>
+                        </div>
+                    </div>
+                    <button class="edit-profile-btn" id="editProfileBtn">
+                        <i class="fas fa-edit"></i> Edit Profile
+                    </button>
+                    <button onclick="logout()" class="logout-btn sidebar-logout">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Overlay for sidebar -->
+            <div class="sidebar-overlay" id="sidebarOverlay"></div>
+            
+            <!-- Edit Profile Modal -->
+            <div class="edit-modal" id="editModal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Edit Profile</h3>
+                        <button class="close-modal" id="closeModal">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="editAge">Age</label>
+                            <input type="number" id="editAge" min="18" max="99" placeholder="Enter your age">
+                        </div>
+                        <div class="form-group">
+                            <label for="editGender">Gender</label>
+                            <select id="editGender">
+                                <option value="">Select Gender</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="cancel-btn" id="cancelEdit">Cancel</button>
+                        <button class="save-btn" id="saveEdit">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="match-info">
+                <span>Online Singles Ready to Match</span>
+                <span class="match-count" id="onlineCount">0</span>
             </div>
             
             <div class="video-container">
+                <!-- Remote video (full screen background) -->
+                <div class="video-box">
+                    <video id="remoteVideo" autoplay playsinline></video>
+                    <div class="video-label" id="remoteLabel">Waiting for match...</div>
+                    <div class="hearts-animation" id="heartsAnimation"></div>
+                    <div class="connection-pulse" id="connectionPulse">
+                        <i class="fas fa-heart"></i>
+                    </div>
+                    <div class="video-controls">
+                        <button class="video-control-btn" onclick="toggleMute()" id="muteControlBtn">
+                            <i class="fas fa-microphone"></i>
+                        </button>
+                        <button class="video-control-btn" onclick="toggleVideo()" id="videoControlBtn">
+                            <i class="fas fa-video"></i>
+                        </button>
+                    </div>
+                </div>
+                <!-- Local video (circle in bottom right) -->
                 <div class="video-box">
                     <video id="localVideo" autoplay muted playsinline></video>
                     <div class="video-label" id="localLabel">You</div>
                 </div>
-                <div class="video-box">
-                    <video id="remoteVideo" autoplay playsinline></video>
-                    <div class="video-label" id="remoteLabel">Waiting...</div>
-                </div>
             </div>
 
             <div class="controls">
-                <button id="connectBtn" class="connect-btn" onclick="findPartner()">Connect</button>
-                <button id="skipBtn" class="skip-btn" onclick="skipPartner()" disabled>Skip</button>
-                <button id="stopBtn" class="stop-btn" onclick="stopConnection()" disabled>Stop</button>
-                <button id="muteBtn" class="mute-btn" onclick="toggleMute()">Mute</button>
-                <button id="videoBtn" class="mute-btn" onclick="toggleVideo()">Video Off</button>
+                <button id="connectBtn" class="connect-btn" onclick="findPartner()">
+                    <i class="fas fa-heart"></i> Find Match
+                </button>
+                <button id="skipBtn" class="skip-btn" onclick="skipPartner()" disabled>
+                    <i class="fas fa-forward"></i> Next
+                </button>
+                <button id="stopBtn" class="stop-btn" onclick="stopConnection()" disabled>
+                    <i class="fas fa-times"></i> End
+                </button>
             </div>
 
-            <div id="status" class="status">Click Connect to start</div>
+            <div id="status" class="status">Tap "Find Match" to start your dating journey</div>
         </div>
     </div>
 
     <!-- Firebase Scripts -->
-
-     <script type="module" src="script.js"></script>
-  
+    <script type="module" src="script.js"></script>
     
+    <script>
+        // Hearts animation
+        function createHearts() {
+            const heartsContainer = document.getElementById('heartsAnimation');
+            heartsContainer.innerHTML = '';
+            
+            for (let i = 0; i < 15; i++) {
+                const heart = document.createElement('div');
+                heart.classList.add('heart');
+                heart.innerHTML = '<i class="fas fa-heart"></i>';
+                heart.style.left = Math.random() * 100 + '%';
+                heart.style.animationDuration = (Math.random() * 3 + 3) + 's';
+                heart.style.animationDelay = (Math.random() * 2) + 's';
+                heartsContainer.appendChild(heart);
+            }
+        }
+        
+        // Profile Sidebar Toggle
+        function initProfileSidebar() {
+            const profileIcon = document.getElementById('profileIcon');
+            const profileSidebar = document.getElementById('profileSidebar');
+            const closeSidebar = document.getElementById('closeSidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            const sidebarProfilePic = document.getElementById('sidebarProfilePic');
+            
+            // Sync profile pictures
+            const defaultPhotoURL = 'https://img.freepik.com/free-vector/man-profile-account-picture_24908-81754.jpg?semt=ais_hybrid&w=740&q=80';
+            const profilePicUrl = currentUser && currentUser.photoURL ? currentUser.photoURL : defaultPhotoURL;
+            sidebarProfilePic.src = profilePicUrl;
+            
+            // Open sidebar
+            profileIcon.addEventListener('click', function() {
+                profileSidebar.classList.add('active');
+                sidebarOverlay.classList.add('active');
+                document.body.style.overflow = 'hidden'; // Prevent scrolling
+            });
+            
+            // Close sidebar
+            function closeSidebarFunc() {
+                profileSidebar.classList.remove('active');
+                sidebarOverlay.classList.remove('active');
+                document.body.style.overflow = ''; // Enable scrolling
+            }
+            
+            closeSidebar.addEventListener('click', closeSidebarFunc);
+            sidebarOverlay.addEventListener('click', closeSidebarFunc);
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            createHearts();
+            initProfileSidebar();
+            initEditProfile();
+        });
 
+        // Edit Profile Modal Functionality
+        function initEditProfile() {
+            const editProfileBtn = document.getElementById('editProfileBtn');
+            const editModal = document.getElementById('editModal');
+            const closeModal = document.getElementById('closeModal');
+            const cancelEdit = document.getElementById('cancelEdit');
+            const saveEdit = document.getElementById('saveEdit');
+            const editAge = document.getElementById('editAge');
+            const editGender = document.getElementById('editGender');
+            const userAge = document.getElementById('userAge');
+            const userGender = document.getElementById('userGender');
+
+            // Load saved data from localStorage
+            function loadProfileData() {
+                const savedAge = localStorage.getItem('userAge');
+                const savedGender = localStorage.getItem('userGender');
+                
+                if (savedAge) {
+                    userAge.textContent = savedAge;
+                    editAge.value = savedAge;
+                }
+                
+                if (savedGender) {
+                    userGender.textContent = savedGender;
+                    editGender.value = savedGender;
+                }
+            }
+
+            // Open modal
+            editProfileBtn.addEventListener('click', function() {
+                // Load current values into modal
+                editAge.value = userAge.textContent;
+                editGender.value = userGender.textContent;
+                
+                editModal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            });
+
+            // Close modal
+            function closeEditModal() {
+                editModal.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+
+            closeModal.addEventListener('click', closeEditModal);
+            cancelEdit.addEventListener('click', closeEditModal);
+
+            // Close modal when clicking outside
+            editModal.addEventListener('click', function(e) {
+                if (e.target === editModal) {
+                    closeEditModal();
+                }
+            });
+
+            // Save changes
+            saveEdit.addEventListener('click', function() {
+                const newAge = editAge.value.trim();
+                const newGender = editGender.value;
+
+                if (newAge && newAge >= 18 && newAge <= 99) {
+                    localStorage.setItem('userAge', newAge);
+                    userAge.textContent = newAge;
+                }
+
+                if (newGender) {
+                    localStorage.setItem('userGender', newGender);
+                    userGender.textContent = newGender;
+                }
+
+                closeEditModal();
+            });
+
+            // Load profile data on page load
+            loadProfileData();
+        }
+        
+        // Show hearts animation when connected
+        const originalFindPartner = window.findPartner;
+        window.findPartner = function() {
+            document.getElementById('connectionPulse').style.display = 'flex';
+            document.getElementById('heartsAnimation').classList.remove('active');
+            originalFindPartner();
+        };
+        
+        // Override connection state change to show hearts
+        const originalSetupPeerConnection = window.setupPeerConnection;
+        if (typeof originalSetupPeerConnection === 'function') {
+            window.setupPeerConnection = function() {
+                const result = originalSetupPeerConnection();
+                const peerConnection = window.peerConnection;
+                
+                if (peerConnection) {
+                    const originalStateChange = peerConnection.onconnectionstatechange;
+                    peerConnection.onconnectionstatechange = function() {
+                        const state = peerConnection.connectionState;
+                        if (state === 'connected') {
+                            document.getElementById('connectionPulse').style.display = 'none';
+                            document.getElementById('heartsAnimation').classList.add('active');
+                        }
+                        if (originalStateChange) originalStateChange();
+                    };
+                }
+                
+                return result;
+            };
+        }
     </script>
 </body>
 </html>

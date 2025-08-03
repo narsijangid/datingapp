@@ -3,39 +3,238 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Authentication</title>
+    <title>HeartBeat - Find Your Match</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f0f0f0; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .auth-container { text-align: center; padding: 50px; background: white; border-radius: 10px; margin: 50px auto; max-width: 400px; }
-        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
-        .auth-btn { background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; width: 100%; margin: 5px 0; }
-        .google-btn { background: #ffffff; color: #757575; padding: 10px 20px; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; width: 100%; margin: 5px 0; display: flex; align-items: center; justify-content: center; font-family: 'Roboto', Arial, sans-serif; font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: background-color 0.3s; }
-        .google-btn:hover { background-color: #f5f5f5; }
-        .google-btn img { margin-right: 10px; width: 18px; height: 18px; }
-        .or-divider { display: flex; align-items: center; margin: 15px 0; }
-        .or-divider:before, .or-divider:after { content: ""; flex: 1; border-bottom: 1px solid #ddd; }
-        .or-divider span { padding: 0 10px; color: #777; font-size: 14px; }
-        .toggle-auth { color: #2196F3; cursor: pointer; text-decoration: underline; }
+        .auth-container { 
+            text-align: center; 
+            padding: 30px; 
+            background: var(--card-color); 
+            border-radius: var(--border-radius); 
+            margin: 20px auto; 
+            max-width: 400px;
+            box-shadow: 0 10px 30px var(--shadow-color);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .error-message {
+            background: #ffebee;
+            border: 1px solid #ffcdd2;
+            color: #c62828;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 14px;
+            text-align: left;
+            display: none;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .error-message i {
+            margin-right: 8px;
+            color: #c62828;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .auth-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: var(--gradient-primary);
+        }
+        
+        .auth-header {
+            margin-bottom: 25px;
+        }
+        
+        .auth-logo {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .auth-logo i {
+            margin-right: 10px;
+            color: var(--primary-color);
+        }
+        
+        .auth-subtitle {
+            font-size: 14px;
+            color: var(--text-light);
+            margin-bottom: 20px;
+        }
+        
+        h2 {
+            font-weight: 600;
+            color: var(--text-color);
+            margin-bottom: 5px;
+        }
+        
+        .google-btn { 
+            background: #ffffff; 
+            color: var(--text-light); 
+            padding: 15px 20px; 
+            border: 1px solid rgba(255, 77, 145, 0.2); 
+            border-radius: var(--button-radius); 
+            cursor: pointer; 
+            width: 100%; 
+            margin: 10px 0; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-family: 'Poppins', sans-serif; 
+            font-weight: 500; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05); 
+            transition: all 0.3s ease;
+            font-size: 15px;
+        }
+        
+        .google-btn:hover { 
+            background-color: #f9f9f9; 
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0,0,0,0.08);
+        }
+        
+        .google-btn img { 
+            margin-right: 10px; 
+            width: 20px; 
+            height: 20px; 
+        }
+        
+        .or-divider { 
+            display: flex; 
+            align-items: center; 
+            margin: 20px 0; 
+        }
+        
+        .or-divider:before, .or-divider:after { 
+            content: ""; 
+            flex: 1; 
+            border-bottom: 1px solid rgba(255, 77, 145, 0.2); 
+        }
+        
+        .or-divider span { 
+            padding: 0 15px; 
+            color: var(--text-light); 
+            font-size: 14px; 
+            font-weight: 500;
+        }
+        
+        .form-group {
+            position: relative;
+            margin-bottom: 15px;
+        }
+        
+        .form-group i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-light);
+            font-size: 16px;
+        }
+        
+        .form-group input {
+            padding-left: 45px;
+        }
+        
+        .auth-footer {
+            margin-top: 20px;
+            font-size: 14px;
+            color: var(--text-light);
+        }
+        
+        .hearts-bg {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            z-index: -1;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 30c-5.5-7.4-15.1-9.8-22.3-3.1-7.2 6.7-7.9 18.2-1.6 25.6 6.3 7.4 16.8 10.2 24 6.4 7.2-3.8 11.4-13.5 5.9-20.9-5.5-7.4-15.1-9.8-22.3-3.1-7.2 6.7-7.9 18.2-1.6 25.6 6.3 7.4 16.8 10.2 24 6.4 7.2-3.8 11.4-13.5 5.9-20.9z' fill='%23FF4D91' fill-opacity='1' fill-rule='evenodd'/%3E%3C/svg%3E");
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <!-- Authentication Section -->
         <div id="authContainer" class="auth-container">
-            <h2 id="authTitle">Login</h2>
+            <div class="hearts-bg"></div>
+            <div class="auth-header">
+                <div class="auth-logo">
+                    <i class="fas fa-heart-pulse"></i> HeartBeat
+                </div>
+                <div class="auth-subtitle">Find your perfect match today</div>
+            </div>
+            
+            <h2 id="authTitle">Welcome Back</h2>
+            <p class="auth-subtitle">Sign in to continue your journey to love</p>
+            
             <button id="googleBtn" class="google-btn">
                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google logo">
                 Continue with Google
             </button>
+            
             <div class="or-divider">
                 <span>OR</span>
             </div>
-            <input type="email" id="email" placeholder="Email" required>
-            <input type="password" id="password" placeholder="Password" required>
-            <input type="text" id="username" placeholder="Username" style="display: none;" required>
-            <button id="authBtn" class="auth-btn">Login</button>
-            <p><span id="toggleAuth" class="toggle-auth">Don't have an account? Sign up</span></p>
+            
+            <div id="errorContainer" class="error-message">
+                <i class="fas fa-exclamation-circle"></i>
+                <span id="errorText"></span>
+            </div>
+            
+            <div class="form-group">
+                <i class="fas fa-envelope"></i>
+                <input type="email" id="email" placeholder="Email Address" required>
+            </div>
+            
+            <div class="form-group">
+                <i class="fas fa-lock"></i>
+                <input type="password" id="password" placeholder="Password" required>
+            </div>
+            
+            <div class="form-group" style="display: none;">
+                <i class="fas fa-user"></i>
+                <input type="text" id="username" placeholder="Choose a Username" required>
+            </div>
+            
+            <div class="form-group age-verification" style="display: none;">
+                <label style="display: flex; align-items: center; font-size: 14px; color: var(--text-light); cursor: pointer;">
+                    <input type="checkbox" id="ageVerify" required style="width: auto; margin-right: 10px; margin-left: 0;">
+                    <span>I confirm I am 18+ years old</span>
+                </label>
+            </div>
+            
+            <button id="authBtn" class="auth-btn">Sign In</button>
+            
+            <div class="auth-footer">
+                <p><span id="toggleAuth" class="toggle-auth">New to HeartBeat? Create an account</span></p>
+            </div>
         </div>
     </div>
 
@@ -69,6 +268,8 @@
         const emailInput = document.getElementById('email');
         const passwordInput = document.getElementById('password');
         const usernameInput = document.getElementById('username');
+        const errorContainer = document.getElementById('errorContainer');
+        const errorText = document.getElementById('errorText');
         
         // Google Auth Provider
         const googleProvider = new GoogleAuthProvider();
@@ -80,19 +281,60 @@
             'prompt': 'select_account'
         });
 
+        // Custom error handling
+        function showError(message) {
+            errorText.textContent = message;
+            errorContainer.classList.add('show');
+            setTimeout(() => {
+                errorContainer.classList.remove('show');
+            }, 5000);
+        }
+
+        function hideError() {
+            errorContainer.classList.remove('show');
+        }
+
+        function getFriendlyErrorMessage(errorCode) {
+            const errorMessages = {
+                'auth/invalid-email': 'Please enter a valid email address',
+                'auth/user-disabled': 'This account has been disabled. Please contact support',
+                'auth/user-not-found': 'No account found with this email address',
+                'auth/wrong-password': 'Incorrect password. Please try again',
+                'auth/email-already-in-use': 'An account with this email already exists. Try logging in instead',
+                'auth/operation-not-allowed': 'This sign-in method is not enabled. Please contact support',
+                'auth/weak-password': 'Password is too weak. Please use at least 6 characters',
+                'auth/network-request-failed': 'Network error. Please check your connection and try again',
+                'auth/too-many-requests': 'Too many failed attempts. Please try again later',
+                'auth/account-exists-with-different-credential': 'An account already exists with this email. Please sign in with your existing method',
+                'auth/popup-closed-by-user': 'Sign-in was cancelled. Please try again',
+                'auth/cancelled-popup-request': 'Sign-in request was cancelled',
+                'auth/invalid-credential': 'Invalid credentials. Please check your details and try again',
+                'auth/missing-email': 'Please enter your email address',
+                'auth/internal-error': 'Something went wrong. Please try again',
+                'auth/timeout': 'Request timed out. Please try again',
+                'default': 'An unexpected error occurred. Please try again'
+            };
+            
+            return errorMessages[errorCode] || errorMessages['default'];
+        }
+
         // Authentication event listeners
         toggleAuth.addEventListener('click', () => {
             isSignup = !isSignup;
+            const ageVerification = document.querySelector('.age-verification');
+            
             if (isSignup) {
                 authTitle.textContent = 'Sign Up';
                 authBtn.textContent = 'Sign Up';
                 toggleAuth.textContent = 'Already have an account? Login';
-                usernameInput.style.display = 'block';
+                usernameInput.parentElement.style.display = 'block';
+                ageVerification.style.display = 'block';
             } else {
                 authTitle.textContent = 'Login';
                 authBtn.textContent = 'Login';
                 toggleAuth.textContent = "Don't have an account? Sign up";
-                usernameInput.style.display = 'none';
+                usernameInput.parentElement.style.display = 'none';
+                ageVerification.style.display = 'none';
             }
         });
 
@@ -100,19 +342,45 @@
             const email = emailInput.value.trim();
             const password = passwordInput.value.trim();
             const username = usernameInput.value.trim();
+            const ageVerify = document.getElementById('ageVerify');
+
+            hideError();
 
             if (!email || !password || (isSignup && !username)) {
-                alert('Please fill all fields');
+                showError('Please fill in all required fields');
+                return;
+            }
+            
+            if (isSignup && !ageVerify.checked) {
+                showError('Please confirm you are 18+ years old to continue');
+                return;
+            }
+
+            // Basic email validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                showError('Please enter a valid email address');
+                return;
+            }
+
+            // Password strength check for signup
+            if (isSignup && password.length < 6) {
+                showError('Password must be at least 6 characters long');
                 return;
             }
 
             try {
                 if (isSignup) {
                     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                    await updateProfile(userCredential.user, { displayName: username });
+                    const defaultPhotoURL = 'https://img.freepik.com/free-vector/man-profile-account-picture_24908-81754.jpg?semt=ais_hybrid&w=740&q=80';
+                    await updateProfile(userCredential.user, { 
+                        displayName: username,
+                        photoURL: defaultPhotoURL
+                    });
                     await set(ref(database, `users/${userCredential.user.uid}`), {
                         username: username,
                         email: email,
+                        photoURL: defaultPhotoURL,
                         lastSeen: serverTimestamp()
                     });
                 } else {
@@ -121,20 +389,21 @@
                 // Redirect to main page after successful authentication
                 window.location.href = 'index.html';
             } catch (error) {
-                alert('Authentication failed: ' + error.message);
+                showError(getFriendlyErrorMessage(error.code));
             }
         });
 
         // Google Sign In
         googleBtn.addEventListener('click', async () => {
             try {
+                hideError();
                 // Show loading state
                 googleBtn.disabled = true;
                 googleBtn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google logo"> Signing in...';
                 
                 const result = await signInWithPopup(auth, googleProvider);
                 const user = result.user;
-                const photoURL = user.photoURL || 'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/profile-placeholder.png';
+                const photoURL = user.photoURL || 'https://img.freepik.com/free-vector/man-profile-account-picture_24908-81754.jpg?semt=ais_hybrid&w=740&q=80';
                 
                 // Save user data to database
                 await set(ref(database, `users/${user.uid}`), {
@@ -148,7 +417,7 @@
                 window.location.href = 'index.html';
             } catch (error) {
                 console.error('Google sign in error:', error);
-                alert('Google sign in failed: ' + error.message);
+                showError(getFriendlyErrorMessage(error.code));
                 
                 // Reset button state
                 googleBtn.disabled = false;
@@ -156,6 +425,11 @@
             }
         });
         
+        // Hide errors when user starts typing
+        emailInput.addEventListener('input', hideError);
+        passwordInput.addEventListener('input', hideError);
+        usernameInput.addEventListener('input', hideError);
+
         // Check if user is already logged in
         onAuthStateChanged(auth, (user) => {
             if (user) {

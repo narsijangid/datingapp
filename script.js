@@ -66,14 +66,26 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
                 currentUser = user;
                 currentUserSpan.textContent = user.displayName || user.email;
                 
-                // Set profile picture if available
-                if (user.photoURL) {
-                    userProfilePic.src = user.photoURL;
+                // Set profile picture - use default if none available
+                const defaultPhotoURL = 'https://img.freepik.com/free-vector/man-profile-account-picture_24908-81754.jpg?semt=ais_hybrid&w=740&q=80';
+                const profilePicUrl = user.photoURL || defaultPhotoURL;
+                userProfilePic.src = profilePicUrl;
+                
+                // Update sidebar profile pic if element exists
+                const sidebarProfilePic = document.getElementById('sidebarProfilePic');
+                if (sidebarProfilePic) {
+                    sidebarProfilePic.src = profilePicUrl;
                 }
                 
                 chatContainer.style.display = 'block';
                 initializeUserPresence();
                 initializeMedia();
+                initializeOnlineCount();
+                
+                // Initialize sidebar if it exists
+                if (typeof initProfileSidebar === 'function') {
+                    initProfileSidebar();
+                }
             } else {
                 // Redirect to auth page if not logged in
                 window.location.href = 'auth.html';
@@ -91,6 +103,21 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
             });
 
             onDisconnect(onlineRef).remove();
+        }
+
+        // Initialize online user count
+        function initializeOnlineCount() {
+            const onlineRef = ref(database, 'online');
+            const onlineCountElement = document.getElementById('onlineCount');
+            
+            if (!onlineCountElement) return;
+            
+            // Listen for changes in the online users
+            onValue(onlineRef, (snapshot) => {
+                const onlineUsers = snapshot.val();
+                const count = onlineUsers ? Object.keys(onlineUsers).length : 0;
+                onlineCountElement.textContent = count;
+            });
         }
 
         // Initialize media
