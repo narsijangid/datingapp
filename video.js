@@ -12,16 +12,20 @@ let audioEnabled = true;
 let videoEnabled = true;
 
 // DOM elements
-const localVideo = document.getElementById('localVideo');
-const remoteVideo = document.getElementById('remoteVideo');
-const localLabel = document.getElementById('localLabel');
-const remoteLabel = document.getElementById('remoteLabel');
-const status = document.getElementById('status');
-const connectBtn = document.getElementById('connectBtn');
-const skipBtn = document.getElementById('skipBtn');
-const stopBtn = document.getElementById('stopBtn');
-const muteBtn = document.getElementById('muteBtn');
-const videoBtn = document.getElementById('videoBtn');
+let localVideo, remoteVideo, localLabel, remoteLabel, status, connectBtn, skipBtn, stopBtn, muteBtn, videoBtn;
+
+document.addEventListener('DOMContentLoaded', () => {
+    localVideo = document.getElementById('localVideo');
+    remoteVideo = document.getElementById('remoteVideo');
+    localLabel = document.getElementById('localLabel');
+    remoteLabel = document.getElementById('remoteLabel');
+    status = document.getElementById('status');
+    connectBtn = document.getElementById('connectBtn');
+    skipBtn = document.getElementById('skipBtn');
+    stopBtn = document.getElementById('stopBtn');
+    muteBtn = document.getElementById('muteBtn');
+    videoBtn = document.getElementById('videoBtn');
+});
 
 // Initialize user presence
 function initializeUserPresence(user, database) {
@@ -38,17 +42,32 @@ function initializeUserPresence(user, database) {
 
 // Initialize media
 async function initializeMedia() {
+    // Wait for DOM to be fully loaded if elements are not available yet
+    if (!localVideo || !localLabel || !status) {
+        console.log('DOM elements not ready, waiting for DOMContentLoaded');
+        return new Promise(resolve => {
+            document.addEventListener('DOMContentLoaded', async () => {
+                await initializeMediaInternal();
+                resolve();
+            });
+        });
+    } else {
+        return initializeMediaInternal();
+    }
+}
+
+async function initializeMediaInternal() {
     try {
         localStream = await navigator.mediaDevices.getUserMedia({
             video: true,
             audio: true
         });
-        localVideo.srcObject = localStream;
+        if (localVideo) localVideo.srcObject = localStream;
         const currentUser = JSON.parse(localStorage.getItem('currentUser')) || {};
-        localLabel.textContent = `You (${currentUser.displayName || currentUser.email || 'User'})`;
+        if (localLabel) localLabel.textContent = `You (${currentUser.displayName || currentUser.email || 'User'})`;
     } catch (error) {
         console.error('Error accessing media devices:', error);
-        status.textContent = 'Error: Could not access camera/microphone';
+        if (status) status.textContent = 'Error: Could not access camera/microphone';
     }
 }
 
@@ -57,8 +76,8 @@ async function findPartner(database, currentUser) {
     if (isConnecting) return;
     
     isConnecting = true;
-    connectBtn.disabled = true;
-    status.textContent = 'Looking for partner...';
+    if (connectBtn) connectBtn.disabled = true;
+    if (status) status.textContent = 'Looking for partner...';
 
     try {
         // Check for waiting users
@@ -226,8 +245,8 @@ function skipPartner(database, currentUser) {
 // Stop connection
 function stopConnection(database, currentUser) {
     cleanupConnection(database, currentUser);
-    status.textContent = 'Disconnected. Click Connect to start again.';
-    connectBtn.disabled = false;
+    if (status) status.textContent = 'Disconnected. Click Connect to start again.';
+    if (connectBtn) connectBtn.disabled = false;
 }
 
 // Toggle mute
@@ -237,7 +256,7 @@ function toggleMute() {
         if (audioTrack) {
             audioEnabled = !audioEnabled;
             audioTrack.enabled = audioEnabled;
-            muteBtn.textContent = audioEnabled ? 'Mute' : 'Unmute';
+            if (muteBtn) muteBtn.textContent = audioEnabled ? 'Mute' : 'Unmute';
         }
     }
 }
@@ -249,43 +268,44 @@ function toggleVideo() {
         if (videoTrack) {
             videoEnabled = !videoEnabled;
             videoTrack.enabled = videoEnabled;
-            videoBtn.textContent = videoEnabled ? 'Video Off' : 'Video On';
+            if (videoBtn) videoBtn.textContent = videoEnabled ? 'Video Off' : 'Video On';
         }
     }
 }
 
 // Handle disconnection
 function handleDisconnection() {
-    status.textContent = 'Partner disconnected. Click Connect to find another.';
-    remoteLabel.textContent = 'Waiting...';
+    if (status) status.textContent = 'Partner disconnected. Click Connect to find another.';
+    if (remoteLabel) remoteLabel.textContent = 'Waiting...';
     cleanupConnection();
 }
 
 // Cleanup connection
-function cleanupConnection(database, currentUser) {
+function cleanupConnection(database = null, currentUser = null) {
     if (peerConnection) {
         peerConnection.close();
         peerConnection = null;
     }
     
-    if (currentRoom) {
+    if (currentRoom && database) {
         remove(ref(database, `rooms/${currentRoom}`));
         currentRoom = null;
     }
 
-    if (currentUser) {
+    if (currentUser && database) {
         remove(ref(database, `waiting/${currentUser.uid}`));
     }
 
-    remoteVideo.srcObject = null;
+    if (remoteVideo) remoteVideo.srcObject = null;
     remoteStream = null;
     isInitiator = false;
     isConnecting = false;
     
-    connectBtn.disabled = false;
-    skipBtn.disabled = true;
-    stopBtn.disabled = true;
-    remoteLabel.textContent = 'Waiting...';
+    if (connectBtn) connectBtn.disabled = false;
+     if (skipBtn) skipBtn.disabled = true;
+     if (stopBtn) stopBtn.disabled = true;
+     if (status) status.textContent = 'Disconnected';
+     if (remoteLabel) remoteLabel.textContent = 'Waiting...';
 }
 
 // Cleanup on page reload/close
