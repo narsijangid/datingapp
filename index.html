@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>P2P Video Chat</title>
+   
+</head>
+<body>
+    <div class="container">
+        <!-- Chat Section -->
+        <div id="chatContainer" class="chat-container">
+            <div class="user-info">
+                <span>Welcome, <strong id="currentUser"></strong></span>
+                <button onclick="logout()" style="margin-left: 10px; padding: 5px; background: #f44336; color: white; border: none; border-radius: 3px; cursor: pointer;">Logout</button>
+            </div>
+            
+            <div class="video-container">
+                <div class="video-box">
+                    <video id="localVideo" autoplay muted playsinline></video>
+                    <div class="video-label" id="localLabel">You</div>
+                </div>
+                <div class="video-box">
+                    <video id="remoteVideo" autoplay playsinline></video>
+                    <div class="video-label" id="remoteLabel">Waiting...</div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button id="connectBtn" class="connect-btn" onclick="findPartner()">Connect</button>
+                <button id="skipBtn" class="skip-btn" onclick="skipPartner()" disabled>Skip</button>
+                <button id="stopBtn" class="stop-btn" onclick="stopConnection()" disabled>Stop</button>
+                <button id="muteBtn" class="mute-btn" onclick="toggleMute()">Mute</button>
+                <button id="videoBtn" class="mute-btn" onclick="toggleVideo()">Video Off</button>
+            </div>
+
+            <div id="status" class="status">Click Connect to start</div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="script.js"></script>
+</body>
+</html>
