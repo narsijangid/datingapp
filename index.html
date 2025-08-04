@@ -187,6 +187,12 @@
 
         <!-- Chat Section -->
         <div id="chatContainer" class="chat-container" style="display: block;">
+            <!-- Chat Icon -->
+            <div class="chat-icon" id="chatIcon">
+                <i class="fas fa-comments"></i>
+                <span class="chat-badge" id="chatBadge" style="display: none;">0</span>
+            </div>
+            
             <div class="profile-icon" id="profileIcon">
                 <img id="userProfilePic" src="https://img.freepik.com/free-vector/man-profile-account-picture_24908-81754.jpg?semt=ais_hybrid&w=740&q=80" alt="Profile">
             </div>
@@ -219,6 +225,28 @@
                     </button>
                     <button onclick="logout()" class="logout-btn sidebar-logout">
                         <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Chat Sidebar -->
+            <div class="chat-sidebar" id="chatSidebar">
+                <div class="chat-sidebar-header">
+                    <h3>Chat</h3>
+                    <button class="close-chat" id="closeChat">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="chat-welcome">
+                        <i class="fas fa-comments"></i>
+                        <p>Start chatting with your match!</p>
+                    </div>
+                </div>
+                <div class="chat-input-container">
+                    <input type="text" id="chatInput" placeholder="Type a message..." maxlength="500">
+                    <button id="sendChatBtn" class="send-chat-btn">
+                        <i class="fas fa-paper-plane"></i>
                     </button>
                 </div>
             </div>

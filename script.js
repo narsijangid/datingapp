@@ -27,6 +27,9 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
         let isConnecting = false;
         let audioEnabled = true;
         let videoEnabled = true;
+        let chatMessagesRef = null;
+        let chatMessagesListener = null;
+        let unreadMessages = 0;
 
         // ICE servers configuration
         const configuration = {
@@ -50,6 +53,13 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
         const stopBtn = document.getElementById('stopBtn');
         const muteBtn = document.getElementById('muteBtn');
         const videoBtn = document.getElementById('videoBtn');
+        const chatIcon = document.getElementById('chatIcon');
+        const chatSidebar = document.getElementById('chatSidebar');
+        const closeChat = document.getElementById('closeChat');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const sendChatBtn = document.getElementById('sendChatBtn');
+        const chatBadge = document.getElementById('chatBadge');
 
         // Logout function
         window.logout = function() {
@@ -81,6 +91,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
                 initializeUserPresence();
                 initializeMedia();
                 initializeOnlineCount();
+                initializeChat();
                 
                 // Initialize sidebar if it exists
                 if (typeof initProfileSidebar === 'function') {
@@ -382,6 +393,187 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
                 await signOut(auth);
             } catch (error) {
                 console.error('Error logging out:', error);
+            }
+        };
+
+        // Chat functionality
+        function initializeChat() {
+            const chatIcon = document.getElementById('chatIcon');
+            const chatSidebar = document.getElementById('chatSidebar');
+            const closeChat = document.getElementById('closeChat');
+            const chatMessages = document.getElementById('chatMessages');
+            const chatInput = document.getElementById('chatInput');
+            const sendChatBtn = document.getElementById('sendChatBtn');
+            const chatBadge = document.getElementById('chatBadge');
+
+            if (!chatIcon || !chatSidebar) {
+                console.error('Chat elements not found');
+                return;
+            }
+
+            // Open chat sidebar
+            chatIcon.addEventListener('click', () => {
+                console.log('Chat icon clicked');
+                chatSidebar.classList.add('active');
+                document.body.style.overflow = 'hidden';
+                
+                // Mark messages as read when opening chat
+                unreadMessages = 0;
+                updateChatBadge();
+            });
+
+            // Close chat sidebar
+            closeChat.addEventListener('click', closeChatSidebar);
+            document.addEventListener('click', (e) => {
+                if (e.target === chatSidebar) {
+                    closeChatSidebar();
+                }
+            });
+
+            function closeChatSidebar() {
+                chatSidebar.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+
+            // Send message
+            sendChatBtn.addEventListener('click', sendMessage);
+            chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+
+            function sendMessage() {
+                const message = chatInput.value.trim();
+                if (!message || !currentRoom || !currentUser) return;
+
+                const messageData = {
+                    text: message,
+                    sender: currentUser.uid,
+                    username: currentUser.displayName || currentUser.email,
+                    timestamp: serverTimestamp()
+                };
+
+                push(ref(database, `rooms/${currentRoom}/messages`), messageData);
+                chatInput.value = '';
+            }
+
+            // Listen for messages
+            function setupChatListeners() {
+                if (chatMessagesListener) {
+                    chatMessagesListener();
+                }
+
+                if (!currentRoom) return;
+
+                chatMessagesRef = ref(database, `rooms/${currentRoom}/messages`);
+                chatMessagesListener = onValue(chatMessagesRef, (snapshot) => {
+                    const messages = snapshot.val();
+                    displayMessages(messages);
+                });
+            }
+
+            function displayMessages(messages) {
+                if (!messages) {
+                    chatMessages.innerHTML = `
+                        <div class="chat-welcome">
+                            <i class="fas fa-comments"></i>
+                            <p>Start chatting with your match!</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                chatMessages.innerHTML = '';
+                const messageArray = Object.entries(messages).map(([key, value]) => ({
+                    id: key,
+                    ...value
+                })).sort((a, b) => a.timestamp - b.timestamp);
+
+                messageArray.forEach(message => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `chat-message ${message.sender === currentUser.uid ? 'sent' : 'received'}`;
+                    
+                    const time = message.timestamp ? new Date(message.timestamp).toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }) : '';
+                    
+                    messageDiv.innerHTML = `
+                        ${message.text}
+                        ${time ? `<div class="timestamp">${time}</div>` : ''}
+                    `;
+                    
+                    chatMessages.appendChild(messageDiv);
+                });
+
+                // Auto-scroll to bottom
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                // Count unread messages if chat is closed
+                if (!chatSidebar.classList.contains('active')) {
+                    const newMessages = messageArray.filter(msg => 
+                        msg.sender !== currentUser.uid && 
+                        !msg.read && 
+                        msg.timestamp > (Date.now() - 300000) // Last 5 minutes
+                    );
+                    unreadMessages = newMessages.length;
+                    updateChatBadge();
+                }
+            }
+
+
+
+            // Expose functions for use in other parts
+            window.setupChatListeners = setupChatListeners;
+            window.closeChatSidebar = closeChatSidebar;
+        }
+
+        // Update connection setup to include chat
+        const originalSetupPeerConnection = setupPeerConnection;
+        setupPeerConnection = async function() {
+            await originalSetupPeerConnection();
+            if (typeof setupChatListeners === 'function') {
+                setupChatListeners();
+            }
+        };
+
+        // Update cleanup to include chat
+        const originalCleanupConnection = cleanupConnection;
+        cleanupConnection = function() {
+            originalCleanupConnection();
+            
+            // Clean up chat listeners
+            if (chatMessagesListener) {
+                chatMessagesListener();
+                chatMessagesListener = null;
+            }
+            
+            // Clear chat messages
+            const chatMessages = document.getElementById('chatMessages');
+            if (chatMessages) {
+                chatMessages.innerHTML = `
+                    <div class="chat-welcome">
+                        <i class="fas fa-comments"></i>
+                        <p>Start chatting with your match!</p>
+                    </div>
+                `;
+            }
+            
+            unreadMessages = 0;
+            updateChatBadge();
+        };
+
+        // Global chat badge update function
+        window.updateChatBadge = function() {
+            const chatBadge = document.getElementById('chatBadge');
+            if (chatBadge) {
+                if (unreadMessages > 0) {
+                    chatBadge.textContent = unreadMessages;
+                    chatBadge.style.display = 'flex';
+                } else {
+                    chatBadge.style.display = 'none';
+                }
             }
         };
 
