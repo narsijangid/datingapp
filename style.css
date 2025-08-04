@@ -172,7 +172,7 @@ video {
 }
 
 .connect-btn { 
-    background: var(--gradient-primary); 
+    background: rgb(0, 145, 255); 
     color: white; 
 }
 
