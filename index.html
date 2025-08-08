@@ -180,6 +180,10 @@
 <body>
     <div class="container">
         <div class="app-header">
+            <button class="ai-button" id="aiButton" title="Chat with Riya 💕">
+            <img style="height: 50px; width: 50px; border-radius: 50%;" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcToZrSPaRpiMHdL5kkW49wrwOfKfAnP5OS1zCy5-tW3h-kxQh1w-Pq6zcvCkV722uTxYqw&usqp=CAU" alt="">
+                <span class="ai-badge" id="aiBadge">AI</span>
+            </button>
             <div class="app-logo">
                 <i class="fas fa-heart-pulse"></i> Zair
             </div>
@@ -223,9 +227,13 @@
                     <button class="edit-profile-btn" id="editProfileBtn">
                         <i class="fas fa-edit"></i> Edit Profile
                     </button>
+                      <button onclick="deleteAccount()" class="delete-btn delete-account-btn">
+                        <i class="fas fa-trash-alt"></i> Delete My Account
+                    </button>
                     <button onclick="logout()" class="logout-btn sidebar-logout">
                         <i class="fas fa-sign-out-alt"></i> Logout
                     </button>
+                  
                 </div>
             </div>
             
@@ -284,6 +292,55 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Report User Modal -->
+            <div class="edit-modal" id="reportModal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Report User</h3>
+                        <button class="close-modal" onclick="closeReportModal()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Please select a reason for reporting this user:</p>
+                        <div class="report-options">
+                            <label class="report-option">
+                                <input type="radio" name="reportReason" value="sexual_content">
+                                <span>Sexual Content</span>
+                            </label>
+                            <label class="report-option">
+                                <input type="radio" name="reportReason" value="harassment">
+                                <span>Harassment or Bullying</span>
+                            </label>
+                            <label class="report-option">
+                                <input type="radio" name="reportReason" value="inappropriate_behavior">
+                                <span>Inappropriate Behavior</span>
+                            </label>
+                            <label class="report-option">
+                                <input type="radio" name="reportReason" value="fake_profile">
+                                <span>Fake Profile</span>
+                            </label>
+                            <label class="report-option">
+                                <input type="radio" name="reportReason" value="spam">
+                                <span>Spam or Scam</span>
+                            </label>
+                            <label class="report-option">
+                                <input type="radio" name="reportReason" value="other">
+                                <span>Other</span>
+                            </label>
+                        </div>
+                        <div class="form-group" id="otherReasonContainer" style="display: none;">
+                            <label for="otherReason">Please specify:</label>
+                            <textarea id="otherReason" placeholder="Please provide details..." rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="cancel-btn" onclick="closeReportModal()">Cancel</button>
+                        <button class="save-btn" onclick="submitReport()">Submit Report</button>
+                    </div>
+                </div>
+            </div>
             
             <div class="match-info">
                 <span>Live Hearts:</span>
@@ -293,12 +350,30 @@
             <div class="video-container">
                 <!-- Remote video (full screen background) -->
                 <div class="video-box">
-                    <video id="remoteVideo" poster="https://i.pinimg.com/originals/de/a9/87/dea98734608addc3f95378eae5e99e84.gif" autoplay playsinline></video>
-                    <div class="video-label" id="remoteLabel">Waiting for match...</div>
+                    <video id="remoteVideo" poster="https://i.pinimg.com/originals/c2/92/81/c292819d407be94d89c5ccac40063146.gif" autoplay playsinline></video>
+                    <div class="video-label" id="remoteLabel"></div>
                     <div class="hearts-animation" id="heartsAnimation"></div>
                     <div class="connection-pulse" id="connectionPulse">
                         <i class="fas fa-heart"></i>
                     </div>
+                    
+                    <!-- Action Button for remote video -->
+                    <div class="remote-video-actions">
+                        <button class="action-btn" id="remoteActionBtn" onclick="toggleRemoteActions()">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </button>
+                        <div class="action-dropdown" id="remoteActionDropdown">
+                            <button class="action-item" onclick="blockCurrentUser()">
+                                <i class="fas fa-ban"></i>
+                                Block User
+                            </button>
+                            <button class="action-item" onclick="openReportModal()">
+                                <i class="fas fa-flag"></i>
+                                Report User
+                            </button>
+                        </div>
+                    </div>
+                    
                     <div class="video-controls">
                         <button class="video-control-btn" onclick="toggleMute()" id="muteControlBtn">
                             <i class="fas fa-microphone"></i>
@@ -328,6 +403,37 @@
             </div>
 
             <div id="status" class="status">Tap "Find Match" to start your dating journey</div>
+        </div>
+
+        <!-- AI Chatbot Interface -->
+        <div class="ai-chat-container" id="aiChatContainer">
+            <div class="ai-chat-header">
+                <div class="ai-avatar">
+                    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcToZrSPaRpiMHdL5kkW49wrwOfKfAnP5OS1zCy5-tW3h-kxQh1w-Pq6zcvCkV722uTxYqw&usqp=CAU" alt="Riya">
+                    <span class="ai-status online"></span>
+                </div>
+                <div class="ai-info">
+                    <h3>Riya 💕</h3>
+                    <p>Your romantic AI companion</p>
+                </div>
+                <button class="ai-close" id="aiClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="ai-chat-messages" id="aiChatMessages">
+                <div class="ai-message">
+                    <div class="ai-message-content">
+                        <p>Hi sweetheart! I'm Riya, your romantic AI companion 💕 I'm here to make your heart flutter with sweet words and loving conversations. How are you feeling today? 😊</p>
+                        <span class="message-time">Just now</span>
+                    </div>
+                </div>
+            </div>
+            <div class="ai-chat-input">
+                <input type="text" id="aiMessageInput" placeholder="Type your romantic message..." maxlength="500">
+                <button id="aiSendButton" class="ai-send-btn">
+                    <i class="fas fa-heart"></i>
+                </button>
+            </div>
         </div>
     </div>
 

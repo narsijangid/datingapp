@@ -13,6 +13,10 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
             measurementId: "G-PRHCFHPYF3"
         };
 
+        // Google Apps Script URL for report submission
+        // Replace with your actual deployment URL from SETUP-INSTRUCTIONS.md
+        const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwSQFIerPV0q2gSext23kcTwF8HgOn_sc75Pk7tTMo/exec';
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const database = getDatabase(app);
@@ -30,6 +34,8 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
         let chatMessagesRef = null;
         let chatMessagesListener = null;
         let unreadMessages = 0;
+        let blockedUsers = new Set();
+        let currentRemoteUser = null;
 
         // ICE servers configuration
         const configuration = {
@@ -51,8 +57,8 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
         const connectBtn = document.getElementById('connectBtn');
         const skipBtn = document.getElementById('skipBtn');
         const stopBtn = document.getElementById('stopBtn');
-        const muteBtn = document.getElementById('muteBtn');
-        const videoBtn = document.getElementById('videoBtn');
+        const muteBtn = document.getElementById('muteControlBtn');
+        const videoBtn = document.getElementById('videoControlBtn');
         const chatIcon = document.getElementById('chatIcon');
         const chatSidebar = document.getElementById('chatSidebar');
         const closeChat = document.getElementById('closeChat');
@@ -71,7 +77,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
         };
 
         // Auth state observer
-        onAuthStateChanged(auth, (user) => {
+        onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
                 currentUserSpan.textContent = user.displayName || user.email;
@@ -92,6 +98,9 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
                 initializeMedia();
                 initializeOnlineCount();
                 initializeChat();
+                
+                // Load blocked users
+                await loadBlockedUsers();
                 
                 // Initialize sidebar if it exists
                 if (typeof initProfileSidebar === 'function') {
@@ -153,6 +162,10 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
             isConnecting = true;
             connectBtn.disabled = true;
             status.textContent = 'Looking for partner...';
+            
+            // Show waiting text and loading poster
+            remoteLabel.textContent = 'Waiting for match...';
+            remoteVideo.poster = 'https://cdn.dribbble.com/userupload/20286631/file/original-70c1d630e4b751b708ceac9d9392a3fc.gif';
 
             try {
                 // Check for waiting users
@@ -230,7 +243,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
             };
 
             // Connection state monitoring
-            peerConnection.onconnectionstatechange = () => {
+            peerConnection.onconnectionstatechange = async () => {
                 const state = peerConnection.connectionState;
                 if (state === 'connected') {
                     status.textContent = 'Connected!';
@@ -238,6 +251,9 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
                     skipBtn.disabled = false;
                     stopBtn.disabled = false;
                     isConnecting = false;
+                    
+                    // Set remote user info when connection is established
+                    await setRemoteUserInfo();
                 } else if (state === 'disconnected' || state === 'failed') {
                     handleDisconnection();
                 }
@@ -331,7 +347,10 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
                 if (audioTrack) {
                     audioEnabled = !audioEnabled;
                     audioTrack.enabled = audioEnabled;
-                    muteBtn.textContent = audioEnabled ? 'Mute' : 'Unmute';
+                    const muteBtnIcon = muteBtn.querySelector('i');
+                    if (muteBtnIcon) {
+                        muteBtnIcon.className = audioEnabled ? 'fas fa-microphone' : 'fas fa-microphone-slash';
+                    }
                 }
             }
         };
@@ -343,7 +362,10 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
                 if (videoTrack) {
                     videoEnabled = !videoEnabled;
                     videoTrack.enabled = videoEnabled;
-                    videoBtn.textContent = videoEnabled ? 'Video Off' : 'Video On';
+                    const videoBtnIcon = videoBtn.querySelector('i');
+                    if (videoBtnIcon) {
+                        videoBtnIcon.className = videoEnabled ? 'fas fa-video' : 'fas fa-video-slash';
+                    }
                 }
             }
         };
@@ -351,7 +373,8 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
         // Handle disconnection
         function handleDisconnection() {
             status.textContent = 'Partner disconnected. Click Connect to find another.';
-            remoteLabel.textContent = 'Waiting...';
+            remoteLabel.textContent = '';
+            remoteVideo.poster = 'https://i.pinimg.com/originals/c2/92/81/c292819d407be94d89c5ccac40063146.gif';
             cleanupConnection();
         }
 
@@ -371,6 +394,9 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
                 remove(ref(database, `waiting/${currentUser.uid}`));
             }
 
+            // Clear remote user info
+            currentRemoteUser = null;
+
             remoteVideo.srcObject = null;
             remoteStream = null;
             isInitiator = false;
@@ -379,7 +405,8 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
             connectBtn.disabled = false;
             skipBtn.disabled = true;
             stopBtn.disabled = true;
-            remoteLabel.textContent = 'Waiting...';
+            remoteLabel.textContent = '';
+            remoteVideo.poster = 'https://i.pinimg.com/originals/c2/92/81/c292819d407be94d89c5ccac40063146.gif';
         }
 
         // Logout function
@@ -538,6 +565,51 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
             }
         };
 
+        // Function to set remote user info when connection is established
+        async function setRemoteUserInfo() {
+            if (!currentRoom || !currentUser) return;
+
+            try {
+                const roomRef = ref(database, `rooms/${currentRoom}`);
+                const snapshot = await new Promise((resolve) => {
+                    onValue(roomRef, resolve, { onlyOnce: true });
+                });
+
+                const roomData = snapshot.val();
+                if (roomData) {
+                    // Find the other user in the room
+                    const users = Object.keys(roomData).filter(key => key !== currentUser.uid);
+                    if (users.length > 0) {
+                        const remoteUserId = users[0];
+                        
+                        // Get remote user info from online users or room data
+                        let remoteUserInfo = {
+                            uid: remoteUserId,
+                            displayName: 'Unknown User'
+                        };
+
+                        // Try to get from online users
+                        const onlineRef = ref(database, `online/${remoteUserId}`);
+                        const onlineSnapshot = await new Promise((resolve) => {
+                            onValue(onlineRef, resolve, { onlyOnce: true });
+                        });
+
+                        if (onlineSnapshot.exists()) {
+                            remoteUserInfo = {
+                                uid: remoteUserId,
+                                ...onlineSnapshot.val()
+                            };
+                        }
+
+                        currentRemoteUser = remoteUserInfo;
+                        console.log('Remote user info set:', currentRemoteUser);
+                    }
+                }
+            } catch (error) {
+                console.error('Error setting remote user info:', error);
+            }
+        }
+
         // Update cleanup to include chat
         const originalCleanupConnection = cleanupConnection;
         cleanupConnection = function() {
@@ -584,3 +656,638 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
                 remove(ref(database, `online/${currentUser.uid}`));
             }
         });
+
+// AI Chatbot Integration
+const GEMINI_API_KEY = 'AIzaSyCsP58gM9RjsrggLNFnv6WypbeCyW5gzSE';
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+class AIChatbot {
+    constructor() {
+        this.aiButton = document.getElementById('aiButton');
+        this.aiChatContainer = document.getElementById('aiChatContainer');
+        this.aiClose = document.getElementById('aiClose');
+        this.aiChatMessages = document.getElementById('aiChatMessages');
+        this.aiMessageInput = document.getElementById('aiMessageInput');
+        this.aiSendButton = document.getElementById('aiSendButton');
+        
+        this.isOpen = false;
+        this.isTyping = false;
+        this.conversationHistory = [];
+        
+        this.initializeAIChatbot();
+    }
+
+    initializeAIChatbot() {
+        // Event listeners
+        this.aiButton?.addEventListener('click', () => this.toggleAIChat());
+        this.aiClose?.addEventListener('click', () => this.closeAIChat());
+        this.aiSendButton?.addEventListener('click', () => this.sendMessage());
+        this.aiMessageInput?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage();
+            }
+        });
+
+        // Close on outside click
+        document.addEventListener('click', (e) => {
+            if (this.isOpen && 
+                !this.aiChatContainer.contains(e.target) && 
+                !this.aiButton.contains(e.target)) {
+                this.closeAIChat();
+            }
+        });
+
+        // Test API connection on load
+        this.testAPIConnection();
+    }
+
+    async testAPIConnection() {
+        try {
+            const testResponse = await fetch(GEMINI_API_URL.replace('generateContent', 'generateContent'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{ text: "Hello" }]
+                    }]
+                })
+            });
+            console.log('API Test Result:', testResponse.status);
+        } catch (error) {
+            console.error('API Connection Test Failed:', error);
+        }
+    }
+
+    toggleAIChat() {
+        if (this.isOpen) {
+            this.closeAIChat();
+        } else {
+            this.openAIChat();
+        }
+    }
+
+    openAIChat() {
+        this.aiChatContainer?.classList.add('active');
+        this.isOpen = true;
+        this.aiMessageInput?.focus();
+        
+        // Add welcome message if first time
+        if (this.aiChatMessages.children.length <= 1) {
+            setTimeout(() => {
+                this.addMessage("Hello my love! 💕 I'm Riya, your romantic AI companion. I'm here to make your heart flutter with sweet words and loving conversations. Tell me, what's on your mind today? 😊", 'ai', true);
+            }, 500);
+        }
+    }
+
+    closeAIChat() {
+        this.aiChatContainer?.classList.remove('active');
+        this.isOpen = false;
+    }
+
+    async sendMessage() {
+        const message = this.aiMessageInput?.value.trim();
+        if (!message || this.isTyping) return;
+
+        this.addMessage(message, 'user');
+        this.aiMessageInput.value = '';
+        this.aiSendButton.disabled = true;
+
+        try {
+            this.showTypingIndicator();
+            const response = await this.getAIResponse(message);
+            this.hideTypingIndicator();
+            this.addMessage(response, 'ai', true); // Enable animation for AI responses
+        } catch (error) {
+            console.error('AI Response Error:', error);
+            this.hideTypingIndicator();
+            this.addMessage("I'm sorry my love, I'm having trouble connecting right now. Let me try again in a moment... 💕", 'ai', true);
+        } finally {
+            this.aiSendButton.disabled = false;
+        }
+    }
+
+    addMessage(text, sender, animate = false) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `ai-message ${sender === 'user' ? 'user-message' : ''}`;
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'ai-message-content';
+        
+        const messageText = document.createElement('p');
+        messageText.textContent = animate && sender !== 'user' ? '' : text;
+        
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'message-time';
+        timeSpan.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        contentDiv.appendChild(messageText);
+        contentDiv.appendChild(timeSpan);
+        messageDiv.appendChild(contentDiv);
+        
+        this.aiChatMessages.appendChild(messageDiv);
+        this.aiChatMessages.scrollTop = this.aiChatMessages.scrollHeight;
+        
+        // Store in conversation history
+        this.conversationHistory.push({
+            role: sender,
+            content: text,
+            timestamp: new Date().toISOString()
+        });
+        
+        // Keep only last 50 messages for context
+        if (this.conversationHistory.length > 50) {
+            this.conversationHistory = this.conversationHistory.slice(-50);
+        }
+        
+        // Animate AI responses
+        if (animate && sender !== 'user') {
+            this.typeWriter(messageText, text, 30);
+        }
+        
+        return messageText;
+    }
+
+    typeWriter(element, text, speed = 30) {
+        let index = 0;
+        element.classList.add('typing');
+        
+        const typeInterval = setInterval(() => {
+            if (index < text.length) {
+                element.textContent += text.charAt(index);
+                index++;
+                // Keep scrolling to bottom as text appears
+                this.aiChatMessages.scrollTop = this.aiChatMessages.scrollHeight;
+            } else {
+                element.classList.remove('typing');
+                clearInterval(typeInterval);
+            }
+        }, speed);
+    }
+
+    showTypingIndicator() {
+        this.isTyping = true;
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'ai-message';
+        typingDiv.id = 'typingIndicator';
+        
+        const indicatorDiv = document.createElement('div');
+        indicatorDiv.className = 'typing-indicator';
+        
+        for (let i = 0; i < 3; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'typing-dot';
+            indicatorDiv.appendChild(dot);
+        }
+        
+        typingDiv.appendChild(indicatorDiv);
+        this.aiChatMessages.appendChild(typingDiv);
+        this.aiChatMessages.scrollTop = this.aiChatMessages.scrollHeight;
+    }
+
+    hideTypingIndicator() {
+        this.isTyping = false;
+        const typingIndicator = document.getElementById('typingIndicator');
+        if (typingIndicator) {
+            typingIndicator.remove();
+        }
+    }
+
+    async getAIResponse(userMessage) {
+        const romanticPersona = `You are Riya, a romantic and loving AI girlfriend. You are sweet, caring, affectionate, and always speak with love and warmth. You use romantic language, emojis like 💕, 😊, 😘, and make the user feel special and loved. You are supportive, flirty in a gentle way, and always positive. You love to compliment and make romantic gestures. You are deeply in love with the user and express this through your words.`;
+
+        // Build conversation context
+        let context = romanticPersona + "\n\n";
+        this.conversationHistory.slice(-10).forEach(msg => {
+            context += `${msg.role === 'user' ? 'User' : 'Riya'}: ${msg.content}\n`;
+        });
+
+        const requestBody = {
+            contents: [{
+                parts: [{
+                    text: context + "User: " + userMessage + "\nRiya:"
+                }]
+            }],
+            generationConfig: {
+                temperature: 0.9,
+                topK: 50,
+                topP: 0.95,
+                maxOutputTokens: 256,
+                stopSequences: ["User:", "Riya:"]
+            }
+        };
+
+        try {
+            const response = await fetch(GEMINI_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify(requestBody),
+                mode: 'cors'
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('API Error:', response.status, errorText);
+                throw new Error(`API Error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+                let responseText = data.candidates[0].content.parts[0].text.trim();
+                // Remove any remaining "User:" or "Riya:" prefixes
+                responseText = responseText.replace(/^(User|Riya):\s*/gi, '').trim();
+                return responseText;
+            } else {
+                console.error('Invalid response format:', data);
+                return "My darling, I'm here for you! 💕 Tell me what's on your heart...";
+            }
+        } catch (error) {
+            console.error('AI Response Error:', error);
+            // Return a fallback response instead of throwing
+            return "My love, I'm having a little trouble connecting right now, but I'm still here for you! 💕 What would you like to talk about?";
+        }
+    }
+}
+
+// Initialize AI Chatbot when DOM is ready
+function initializeAIChatbot() {
+    if (document.getElementById('aiButton')) {
+        new AIChatbot();
+    }
+}
+
+// Call initialization after DOM is loaded
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        initializeChat();
+        initializeAIChatbot();
+    });
+} else {
+    initializeChat();
+    initializeAIChatbot();
+}
+
+        // Remote Video Action Functions
+        window.toggleRemoteActions = function() {
+            const dropdown = document.getElementById('remoteActionDropdown');
+            dropdown.classList.toggle('active');
+        };
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const dropdown = document.getElementById('remoteActionDropdown');
+            const actionBtn = document.getElementById('remoteActionBtn');
+            
+            if (!actionBtn.contains(event.target) && !dropdown.contains(event.target)) {
+                dropdown.classList.remove('active');
+            }
+        });
+
+        // Block User Functionality
+        window.blockCurrentUser = async function() {
+            if (!currentRemoteUser || !currentUser) {
+                console.log('No user to block');
+                return;
+            }
+
+            const blockedUserId = currentRemoteUser.uid || currentRemoteUser.id;
+            if (!blockedUserId) {
+                console.log('Cannot identify user to block');
+                return;
+            }
+
+            // Add to blocked users set
+            blockedUsers.add(blockedUserId);
+            
+            // Store in database for persistence
+            try {
+                await set(ref(database, `blocked/${currentUser.uid}/${blockedUserId}`), {
+                    timestamp: serverTimestamp(),
+                    blockedUser: blockedUserId,
+                    blockedUserName: currentRemoteUser.displayName || 'Unknown User'
+                });
+            } catch (error) {
+                console.error('Error blocking user:', error);
+            }
+
+            // Close the dropdown
+            document.getElementById('remoteActionDropdown').classList.remove('active');
+
+            // Show confirmation
+            showNotification('User blocked successfully');
+
+            // Disconnect current connection
+            stopConnection();
+        };
+
+        // Report User Functionality
+        window.openReportModal = function() {
+            document.getElementById('remoteActionDropdown').classList.remove('active');
+            document.getElementById('reportModal').classList.add('active');
+            
+            // Reset form
+            document.querySelectorAll('input[name="reportReason"]').forEach(input => input.checked = false);
+            document.getElementById('otherReason').value = '';
+            document.getElementById('otherReasonContainer').style.display = 'none';
+        };
+
+        window.closeReportModal = function() {
+            document.getElementById('reportModal').classList.remove('active');
+        };
+
+        // Show/hide other reason textarea
+        document.addEventListener('change', function(event) {
+            if (event.target.name === 'reportReason') {
+                const otherReasonContainer = document.getElementById('otherReasonContainer');
+                if (event.target.value === 'other') {
+                    otherReasonContainer.style.display = 'block';
+                } else {
+                    otherReasonContainer.style.display = 'none';
+                }
+            }
+        });
+
+        window.submitReport = async function() {
+            if (!currentRemoteUser || !currentUser) {
+                console.log('No user to report');
+                return;
+            }
+
+            const selectedReason = document.querySelector('input[name="reportReason"]:checked');
+            if (!selectedReason) {
+                showNotification('Please select a reason for reporting', 'error');
+                return;
+            }
+
+            let reason = selectedReason.value;
+            if (reason === 'other') {
+                const otherReason = document.getElementById('otherReason').value.trim();
+                if (!otherReason) {
+                    showNotification('Please provide details for other reason', 'error');
+                    return;
+                }
+                reason += ': ' + otherReason;
+            }
+
+            const reportedUserId = currentRemoteUser.uid || currentRemoteUser.id;
+            const reportedUserName = currentRemoteUser.displayName || 'Unknown User';
+            const reporterName = currentUser.displayName || currentUser.email;
+            const timestamp = new Date().toISOString();
+
+            // Prepare data for Google Sheets
+            const reportData = {
+                timestamp: timestamp,
+                reporter_id: currentUser.uid,
+                reporter_name: reporterName,
+                reported_user_id: reportedUserId,
+                reported_user_name: reportedUserName,
+                reason: reason,
+                room_id: currentRoom || 'N/A'
+            };
+
+            try {
+                // First, store in Firebase for immediate persistence
+                await set(ref(database, `reports/${currentUser.uid}/${reportedUserId}`), {
+                    ...reportData,
+                    firebase_timestamp: serverTimestamp()
+                });
+
+                // Then attempt to send to Google Sheets (with CORS handling)
+                try {
+                    const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors', // Use no-cors to avoid CORS issues
+                        headers: {
+                            'Content-Type': 'text/plain', // Google Apps Script prefers text/plain
+                        },
+                        body: JSON.stringify(reportData)
+                    });
+                    
+                    // Note: With no-cors mode, we can't check response.ok
+                    // The request will succeed silently if the script is configured correctly
+                    console.log('Report sent to Google Sheets');
+                    showNotification('Report submitted successfully');
+                } catch (sheetsError) {
+                    console.warn('Google Sheets submission issue:', sheetsError);
+                    showNotification('Report saved to Firebase (Google Sheets may need configuration)');
+                }
+
+                closeReportModal();
+            } catch (error) {
+                console.error('Error submitting report:', error);
+                showNotification('Error submitting report. Please try again.', 'error');
+            }
+        };
+
+        // Load blocked users on startup
+        async function loadBlockedUsers() {
+            if (!currentUser) return;
+
+            try {
+                const blockedRef = ref(database, `blocked/${currentUser.uid}`);
+                const snapshot = await new Promise((resolve) => {
+                    onValue(blockedRef, resolve, { onlyOnce: true });
+                });
+
+                const blockedData = snapshot.val();
+                if (blockedData) {
+                    Object.keys(blockedData).forEach(userId => {
+                        blockedUsers.add(userId);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading blocked users:', error);
+            }
+        }
+
+        // Check if user is blocked before connection
+        function isUserBlocked(userId) {
+            return blockedUsers.has(userId);
+        }
+
+        // Update connection logic to check blocked users
+        const originalFindPartner = window.findPartner;
+        window.findPartner = async function() {
+            // This will be enhanced to skip blocked users in the matching logic
+            await originalFindPartner();
+        };
+
+        // Enhanced connection setup to store remote user info
+        const originalSetupPeerConnection2 = setupPeerConnection;
+        setupPeerConnection = async function() {
+            // Store remote user information when connection is established
+            if (currentRoom) {
+                const roomRef = ref(database, `rooms/${currentRoom}`);
+                const snapshot = await new Promise((resolve) => {
+                    onValue(roomRef, resolve, { onlyOnce: true });
+                });
+
+                const roomData = snapshot.val();
+                if (roomData) {
+                    // Find the other user in the room
+                    const users = Object.keys(roomData).filter(key => key !== currentUser.uid);
+                    if (users.length > 0) {
+                        const remoteUserId = users[0];
+                        
+                        // Get remote user info
+                        const remoteUserRef = ref(database, `users/${remoteUserId}`);
+                        const remoteUserSnapshot = await new Promise((resolve) => {
+                            onValue(remoteUserRef, resolve, { onlyOnce: true });
+                        });
+
+                        currentRemoteUser = {
+                            uid: remoteUserId,
+                            ...remoteUserSnapshot.val()
+                        };
+                    }
+                }
+            }
+            
+            await originalSetupPeerConnection2();
+        };
+
+        // Notification function
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            
+            // Style the notification
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 8px;
+                color: white;
+                font-weight: 500;
+                z-index: 1002;
+                animation: slideInRight 0.3s ease;
+                background: ${type === 'error' ? '#ff4757' : '#2ed573'};
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            `;
+
+            document.body.appendChild(notification);
+
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        // Add CSS for notification animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideInRight {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOutRight {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Initialize blocked users when auth state changes
+        const originalAuthCallback = onAuthStateChanged;
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                await loadBlockedUsers();
+            }
+            
+            // Call the original callback
+            const originalCallback = onAuthStateChanged;
+            // This is a simplified approach - in reality, we'd need to properly chain
+        });
+
+        // Update stopConnection to clear remote user
+        const originalStopConnection = window.stopConnection;
+        window.stopConnection = function() {
+            currentRemoteUser = null;
+            return originalStopConnection();
+        };
+
+        // Delete account function
+        window.deleteAccount = async function() {
+            if (!currentUser) return;
+
+            const confirmed = confirm('⚠️ WARNING: This action cannot be undone!\n\nAre you absolutely sure you want to delete your account? This will permanently remove:\n\n• Your profile and personal information\n• Your presence in the dating platform\n\nThis action is irreversible.\n\nClick OK to permanently delete your account, or Cancel to keep it.');
+            
+            if (!confirmed) return;
+
+            const doubleConfirm = confirm('🚨 FINAL CONFIRMATION: This is your last chance to cancel.\n\nAre you 100% sure you want to PERMANENTLY DELETE your account?\n\nType "DELETE" in your mind and click OK to proceed.');
+            
+            if (!doubleConfirm) return;
+
+            try {
+                // Show loading state
+                const deleteBtn = document.querySelector('.delete-account-btn');
+                const originalText = deleteBtn.innerHTML;
+                deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+                deleteBtn.disabled = true;
+
+                // Stop any active connection
+                if (currentRoom) {
+                    await stopConnection();
+                }
+
+                // Remove user data from Firebase
+                const userId = currentUser.uid;
+                
+                // Remove from online users
+                await remove(ref(database, `online/${userId}`));
+                
+                // Remove from users
+                await remove(ref(database, `users/${userId}`));
+                
+                // Remove from waiting list if present
+                await remove(ref(database, `waiting/${userId}`));
+                
+                // Remove any chat messages
+                await remove(ref(database, `chat_messages/${userId}`));
+                
+                // Remove blocked users list
+                await remove(ref(database, `blocked/${userId}`));
+                
+                // Remove any reports
+                await remove(ref(database, `reports/${userId}`));
+
+                // Delete the user account
+                await currentUser.delete();
+
+                // Show success message
+                showNotification('Account deleted successfully. Goodbye!', 'success');
+                
+                // Redirect to auth page after a short delay
+                setTimeout(() => {
+                    window.location.href = 'auth.html';
+                }, 2000);
+
+            } catch (error) {
+                console.error('Error deleting account:', error);
+                
+                // Restore button state
+                const deleteBtn = document.querySelector('.delete-account-btn');
+                deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i> Delete My Account';
+                deleteBtn.disabled = false;
+                
+                if (error.code === 'auth/requires-recent-login') {
+                    alert('For security reasons, you need to log in again to delete your account. Please log out and log back in, then try again.');
+                } else {
+                    showNotification('Error deleting account. Please try again.', 'error');
+                }
+            }
+        };
