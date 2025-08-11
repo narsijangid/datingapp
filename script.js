@@ -13,6 +13,297 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
             measurementId: "G-PRHCFHPYF3"
         };
 
+        // Nearest People Map Functionality
+        let nearbyUsers = [];
+        let mapAnimationInterval;
+
+        // Initialize nearest people functionality
+        function initNearestPeople() {
+            const nearestPeopleBtn = document.getElementById('nearestPeopleBtn');
+            const nearestPeopleModal = document.getElementById('nearestPeopleModal');
+            const closeNearestModal = document.getElementById('closeNearestModal');
+            const refreshLocations = document.getElementById('refreshLocations');
+            const toggleView = document.getElementById('toggleView');
+
+            // Open modal
+            nearestPeopleBtn.addEventListener('click', () => {
+                nearestPeopleModal.classList.add('active');
+                generateNearbyUsers();
+                startMapAnimations();
+                document.body.style.overflow = 'hidden';
+            });
+
+            // Close modal
+            closeNearestModal.addEventListener('click', () => {
+                nearestPeopleModal.classList.remove('active');
+                stopMapAnimations();
+                document.body.style.overflow = '';
+            });
+
+            // Close modal when clicking outside
+            nearestPeopleModal.addEventListener('click', (e) => {
+                if (e.target === nearestPeopleModal) {
+                    nearestPeopleModal.classList.remove('active');
+                    stopMapAnimations();
+                    document.body.style.overflow = '';
+                }
+            });
+
+            // Refresh locations
+            refreshLocations.addEventListener('click', () => {
+                generateNearbyUsers();
+                showNotification('Locations refreshed!', 'success');
+            });
+
+            // Toggle view (placeholder for future enhancement)
+            toggleView.addEventListener('click', () => {
+                showNotification('Full screen mode coming soon!', 'info');
+            });
+        }
+
+        // Generate nearby users with real Firebase data
+        async function generateNearbyUsers() {
+            const nearbyUsersContainer = document.getElementById('nearbyUsers');
+            const usersScroll = document.getElementById('usersScroll');
+            
+            // Clear existing users
+            nearbyUsersContainer.innerHTML = '';
+            usersScroll.innerHTML = '';
+            nearbyUsers = [];
+
+            try {
+                // Get current user's location
+                let currentLocation = { lat: 0, lng: 0 };
+                
+                // Try to get user's actual location
+                try {
+                    const position = await new Promise((resolve, reject) => {
+                        if (!navigator.geolocation) {
+                            reject(new Error('Geolocation not supported'));
+                            return;
+                        }
+                        navigator.geolocation.getCurrentPosition(resolve, reject, {
+                            timeout: 5000,
+                            enableHighAccuracy: true
+                        });
+                    });
+                    currentLocation.lat = position.coords.latitude;
+                    currentLocation.lng = position.coords.longitude;
+                } catch (geoError) {
+                    console.log('Using fallback location:', geoError.message);
+                    // Use fallback location
+                    currentLocation = { lat: 0, lng: 0 };
+                }
+
+                // Fetch real users from Firebase
+                const onlineRef = ref(database, 'online');
+                const usersRef = ref(database, 'users');
+                
+                // Get online users
+                const onlineSnapshot = await new Promise((resolve) => {
+                    onValue(onlineRef, resolve, { onlyOnce: true });
+                });
+
+                const usersSnapshot = await new Promise((resolve) => {
+                    onValue(usersRef, resolve, { onlyOnce: true });
+                });
+
+                const onlineUsers = onlineSnapshot.val() || {};
+                const allUsers = usersSnapshot.val() || {};
+
+                // Filter out current user and create nearby users
+                const nearbyUserList = [];
+                Object.keys(onlineUsers).forEach(userId => {
+                    if (userId !== currentUser.uid && allUsers[userId]) {
+                        const userData = allUsers[userId];
+                        nearbyUserList.push({
+                            id: userId,
+                            name: userData.displayName || userData.username || 'User',
+                            distance: calculateDistance(currentLocation, userData.location || { lat: 0, lng: 0 }),
+                            status: 'online',
+                            position: {
+                                x: Math.random() * 80 + 10,
+                                y: Math.random() * 80 + 10
+                            },
+                            profile: userData
+                        });
+                    }
+                });
+
+                // Sort by distance and limit to 15 users
+                nearbyUserList.sort((a, b) => a.distance - b.distance);
+                nearbyUsers = nearbyUserList.slice(0, 15);
+
+                // Display users on map
+                nearbyUsers.forEach(user => {
+                    // Create map user marker
+                    const userMarker = document.createElement('div');
+                    userMarker.className = `nearby-user ${user.status}`;
+                    userMarker.style.left = `${user.position.x}%`;
+                    userMarker.style.top = `${user.position.y}%`;
+                    
+                    const profilePic = user.profile?.photoURL || 'https://via.placeholder.com/40x40/4CAF50/ffffff?text=' + (user.name.charAt(0) || '?');
+                    
+                    userMarker.innerHTML = `
+                        <div class="user-pin">
+                            <div class="user-avatar-pin ${user.status}" 
+                                 style="background-image: url('${profilePic}')">
+                            </div>
+                            <div class="user-pin-marker ${user.status}"></div>
+                            <div class="user-name-label">${user.name}</div>
+                        </div>
+                    `;
+                    
+                    userMarker.title = `${user.name} - ${user.distance.toFixed(1)}km away`;
+                    userMarker.addEventListener('click', () => showUserProfile(user));
+                    nearbyUsersContainer.appendChild(userMarker);
+
+                    // Create user card
+                    const userCard = document.createElement('div');
+                    userCard.className = 'nearby-user-card';
+                    userCard.innerHTML = `
+                        <div class="user-avatar">${user.name.charAt(0)}</div>
+                        <div class="user-info">
+                            <div class="user-name">${user.name}</div>
+                            <div class="user-distance">${user.distance.toFixed(1)} km away</div>
+                        </div>
+                        <span class="user-status ${user.status}">${user.status}</span>
+                    `;
+                    userCard.addEventListener('click', () => showUserProfile(user));
+                    usersScroll.appendChild(userCard);
+                });
+
+                if (nearbyUsers.length === 0) {
+                    usersScroll.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-light);">No users nearby right now. Try refreshing!</div>';
+                }
+
+                // Create connection lines
+                createConnectionLines();
+
+            } catch (error) {
+                console.error('Error fetching nearby users:', error);
+                // Fallback to showing a message
+                usersScroll.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-light);">Unable to load nearby users. Please try again.</div>';
+            }
+        }
+
+        // Calculate distance between two locations (Haversine formula)
+        function calculateDistance(loc1, loc2) {
+            if (!loc1 || !loc2 || !loc1.lat || !loc2.lat) return Math.random() * 5 + 0.5;
+            
+            const R = 6371; // Earth's radius in km
+            const dLat = (loc2.lat - loc1.lat) * Math.PI / 180;
+            const dLng = (loc2.lng - loc1.lng) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(loc1.lat * Math.PI / 180) * Math.cos(loc2.lat * Math.PI / 180) *
+                    Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Update user location in Firebase
+        function updateUserLocation() {
+            if (!currentUser || !navigator.geolocation) return;
+
+            navigator.geolocation.getCurrentPosition((position) => {
+                const userLocation = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                    timestamp: serverTimestamp()
+                };
+
+                set(ref(database, `users/${currentUser.uid}/location`), userLocation);
+            }, (error) => {
+                console.log('Location access denied, using approximate location');
+                // Use approximate location based on IP
+                fetch('https://ipapi.co/json/')
+                    .then(response => response.json())
+                    .then(data => {
+                        const userLocation = {
+                            lat: data.latitude || 0,
+                            lng: data.longitude || 0,
+                            timestamp: serverTimestamp()
+                        };
+                        set(ref(database, `users/${currentUser.uid}/location`), userLocation);
+                    })
+                    .catch(() => {
+                        // Fallback to random location
+                        const userLocation = {
+                            lat: Math.random() * 180 - 90,
+                            lng: Math.random() * 360 - 180,
+                            timestamp: serverTimestamp()
+                        };
+                        set(ref(database, `users/${currentUser.uid}/location`), userLocation);
+                    });
+            });
+        }
+
+        // Create animated connection lines
+        function createConnectionLines() {
+            const connectionLines = document.getElementById('connectionLines');
+            connectionLines.innerHTML = '';
+
+            // Create 3-5 connection lines
+            const lineCount = Math.floor(Math.random() * 3) + 3;
+            
+            for (let i = 0; i < lineCount; i++) {
+                const line = document.createElement('div');
+                line.className = 'connection-line';
+                
+                // Random angle and position
+                const angle = Math.random() * 360;
+                const length = Math.random() * 100 + 50;
+                const startX = Math.random() * 80 + 10;
+                const startY = Math.random() * 80 + 10;
+
+                line.style.width = `${length}px`;
+                line.style.left = `${startX}%`;
+                line.style.top = `${startY}%`;
+                line.style.transform = `rotate(${angle}deg)`;
+                line.style.animationDelay = `${Math.random() * 2}s`;
+                
+                connectionLines.appendChild(line);
+            }
+        }
+
+        // Show user profile (placeholder)
+        function showUserProfile(user) {
+            showNotification(`Viewing profile of ${user.name} - ${user.distance}km away`, 'info');
+        }
+
+        // Start map animations
+        function startMapAnimations() {
+            // Add periodic user position updates
+            mapAnimationInterval = setInterval(() => {
+                const users = document.querySelectorAll('.nearby-user');
+                users.forEach(user => {
+                    const currentX = parseFloat(user.style.left);
+                    const currentY = parseFloat(user.style.top);
+                    
+                    // Small random movement
+                    const newX = Math.max(10, Math.min(90, currentX + (Math.random() - 0.5) * 2));
+                    const newY = Math.max(10, Math.min(90, currentY + (Math.random() - 0.5) * 2));
+                    
+                    user.style.transition = 'all 2s ease';
+                    user.style.left = `${newX}%`;
+                    user.style.top = `${newY}%`;
+                });
+            }, 5000);
+        }
+
+        // Stop map animations
+        function stopMapAnimations() {
+            if (mapAnimationInterval) {
+                clearInterval(mapAnimationInterval);
+                mapAnimationInterval = null;
+            }
+        }
+
+        // Initialize nearest people on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            initNearestPeople();
+        });
+
         // Google Apps Script URL for report submission
         // Replace with your actual deployment URL from SETUP-INSTRUCTIONS.md
         const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwSQFIerPV0q2gSext23kcTwF8HgOn_sc75Pk7tTMo/exec';
@@ -81,6 +372,9 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase
             if (user) {
                 currentUser = user;
                 currentUserSpan.textContent = user.displayName || user.email;
+                
+                // Update user location
+                updateUserLocation();
                 
                 // Set profile picture - use default if none available
                 const defaultPhotoURL = 'https://img.freepik.com/free-vector/man-profile-account-picture_24908-81754.jpg?semt=ais_hybrid&w=740&q=80';

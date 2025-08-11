@@ -180,6 +180,10 @@
 <body>
     <div class="container">
         <div class="app-header">
+            <button class="nearest-people-btn" id="nearestPeopleBtn" title="Find Nearest People">
+                <i class="fas fa-map-marker-alt"></i>
+                <span class="pulse-dot"></span>
+            </button>
             <button class="ai-button" id="aiButton" title="Chat with Riya 💕">
             <img style="height: 50px; width: 50px; border-radius: 50%;" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcToZrSPaRpiMHdL5kkW49wrwOfKfAnP5OS1zCy5-tW3h-kxQh1w-Pq6zcvCkV722uTxYqw&usqp=CAU" alt="">
                 <span class="ai-badge" id="aiBadge">AI</span>
@@ -433,6 +437,47 @@
                 <button id="aiSendButton" class="ai-send-btn">
                     <i class="fas fa-heart"></i>
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nearest People Map Interface -->
+    <div class="nearest-people-modal" id="nearestPeopleModal">
+        <div class="nearest-people-content">
+            <div class="nearest-people-header">
+                <h2><i class="fas fa-map-marker-alt"></i> Nearby Connections</h2>
+                <button class="close-nearest-modal" id="closeNearestModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="map-container" id="mapContainer">
+                <div class="map-placeholder">
+                    <div class="map-grid"></div>
+                    <div class="user-location">
+                        <i class="fas fa-user-circle"></i>
+                        <span>You</span>
+                    </div>
+                    <div class="nearby-users" id="nearbyUsers">
+                        <!-- Nearby users will be dynamically added here -->
+                    </div>
+                    <div class="connection-lines" id="connectionLines">
+                        <!-- Animated connection lines -->
+                    </div>
+                </div>
+                <div class="map-controls">
+                    <button class="map-control-btn" id="refreshLocations">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <button class="map-control-btn" id="toggleView">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="nearby-users-list">
+                <h3>People Nearby</h3>
+                <div class="users-scroll" id="usersScroll">
+                    <!-- Nearby users list will be populated here -->
+                </div>
             </div>
         </div>
     </div>
