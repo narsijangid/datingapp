@@ -959,6 +959,7 @@ class AIChatbot {
     constructor() {
         this.aiButton = document.getElementById('aiButton');
         this.aiChatContainer = document.getElementById('aiChatContainer');
+        this.aiChatBackdrop = document.getElementById('aiChatBackdrop');
         this.aiClose = document.getElementById('aiClose');
         this.aiChatMessages = document.getElementById('aiChatMessages');
         this.aiMessageInput = document.getElementById('aiMessageInput');
@@ -975,6 +976,7 @@ class AIChatbot {
         // Event listeners
         this.aiButton?.addEventListener('click', () => this.toggleAIChat());
         this.aiClose?.addEventListener('click', () => this.closeAIChat());
+        this.aiChatBackdrop?.addEventListener('click', () => this.closeAIChat());
         this.aiSendButton?.addEventListener('click', () => this.sendMessage());
         this.aiMessageInput?.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -987,7 +989,8 @@ class AIChatbot {
         document.addEventListener('click', (e) => {
             if (this.isOpen && 
                 !this.aiChatContainer.contains(e.target) && 
-                !this.aiButton.contains(e.target)) {
+                !this.aiButton.contains(e.target) &&
+                !this.aiChatBackdrop.contains(e.target)) {
                 this.closeAIChat();
             }
         });
@@ -1025,8 +1028,10 @@ class AIChatbot {
 
     openAIChat() {
         this.aiChatContainer?.classList.add('active');
+        this.aiChatBackdrop?.classList.add('active');
         this.isOpen = true;
         this.aiMessageInput?.focus();
+        document.body.style.overflow = 'hidden';
         
         // Add welcome message if first time
         if (this.aiChatMessages.children.length <= 1) {
@@ -1038,7 +1043,9 @@ class AIChatbot {
 
     closeAIChat() {
         this.aiChatContainer?.classList.remove('active');
+        this.aiChatBackdrop?.classList.remove('active');
         this.isOpen = false;
+        document.body.style.overflow = '';
     }
 
     async sendMessage() {
