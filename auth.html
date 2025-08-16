@@ -19,6 +19,30 @@
             overflow: hidden;
         }
 
+        .loader {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .auth-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         .error-message {
             background: #ffebee;
             border: 1px solid #ffcdd2;
@@ -185,6 +209,7 @@
         <div id="authContainer" class="auth-container">
             <div class="hearts-bg"></div>
             <div class="auth-header">
+                <img src="https://www.pngarts.com/files/7/Virtual-Meeting-Online-PNG-Image.png" alt="Connected People" style="width: 180px; height: auto; margin-bottom: 15px; opacity: 0.8;">
                 <div class="auth-logo">
                     <i class="fas fa-heart-pulse"></i> Zair
                 </div>
@@ -369,6 +394,11 @@
                 return;
             }
 
+            // Show loader
+            const originalText = authBtn.textContent;
+            authBtn.innerHTML = '<span class="loader"></span>' + originalText;
+            authBtn.disabled = true;
+
             try {
                 if (isSignup) {
                     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -390,40 +420,13 @@
                 window.location.href = 'index.html';
             } catch (error) {
                 showError(getFriendlyErrorMessage(error.code));
+                // Hide loader on error
+                authBtn.innerHTML = originalText;
+                authBtn.disabled = false;
             }
         });
 
-        // Google Sign In
-        googleBtn.addEventListener('click', async () => {
-            try {
-                hideError();
-                // Show loading state
-                googleBtn.disabled = true;
-                googleBtn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google logo"> Signing in...';
-                
-                const result = await signInWithPopup(auth, googleProvider);
-                const user = result.user;
-                const photoURL = user.photoURL || 'https://img.freepik.com/free-vector/man-profile-account-picture_24908-81754.jpg?semt=ais_hybrid&w=740&q=80';
-                
-                // Save user data to database
-                await set(ref(database, `users/${user.uid}`), {
-                    username: user.displayName || user.email,
-                    email: user.email,
-                    photoURL: photoURL,
-                    lastSeen: serverTimestamp()
-                });
-                
-                // Redirect to main page
-                window.location.href = 'index.html';
-            } catch (error) {
-                console.error('Google sign in error:', error);
-                showError(getFriendlyErrorMessage(error.code));
-                
-                // Reset button state
-                googleBtn.disabled = false;
-                googleBtn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google logo"> Continue with Google';
-            }
-        });
+
         
         // Hide errors when user starts typing
         emailInput.addEventListener('input', hideError);
