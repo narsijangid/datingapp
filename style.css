@@ -1,20 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
-
-/* Default focus ko remove kardo */
-:focus {
-  outline: none;
-  box-shadow: none;
-}
-
-/* Sirf tab ya  se focus hone par dikhai de */
-:focus-visible {
-  outline: 2px solid #007bff00; /* apni marzi ka color */
-  border-radius: 4px;
-}
-
-
-
 :root {
     --primary-color: #FF4D91;
     --primary-light: #FF80AB;
@@ -32,10 +17,25 @@
     --input-radius: 12px;
 }
 
+
+
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+}
+
+button, .auth-btn, .google-btn, .toggle-auth, .ai-button, .chat-icon, .profile-icon, .like-btn, .dislike-btn, .super-like-btn, .action-btn, .card, .swipe-card, .btn, .btn-primary, .btn-secondary {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    outline: none;
+}
+
+button:active, .auth-btn:active, .google-btn:active, .toggle-auth:active, .ai-button:active, .chat-icon:active, .profile-icon:active, .like-btn:active, .dislike-btn:active, .super-like-btn:active, .action-btn:active, .card:active, .swipe-card:active, .btn:active, .btn-primary:active, .btn-secondary:active,
+a, a:visited, a:hover, a:active, a:focus {
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+    -webkit-focus-ring-color: transparent;
 }
 
 html, body { 
@@ -48,7 +48,8 @@ body {
     font-family: 'Poppins', sans-serif; 
     margin: 0; 
     padding: 0; 
-    background-image: url('https://i.makeagif.com/media/2-04-2017/XCq9DL.gif');
+    /* background-image: url('https://i.makeagif.com/media/2-04-2017/XCq9DL.gif'); */
+    background-color: white;
     background-repeat: no-repeat;
     background-size: cover;
     background-position: center;
